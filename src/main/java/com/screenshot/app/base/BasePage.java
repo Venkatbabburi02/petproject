@@ -29,99 +29,67 @@ public abstract class BasePage {
     /**
      * Wait for element to be visible
      */
-    protected WebElement waitForElementToBeVisible(By locator) {
-        logger.debug("Waiting for element to be visible: {}", locator);
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
-    }
-    
-    /**
-     * Wait for element to be clickable
-     */
-    protected WebElement waitForElementToBeClickable(By locator) {
-        logger.debug("Waiting for element to be clickable: {}", locator);
-        return wait.until(ExpectedConditions.elementToBeClickable(locator));
+    protected WebElement waitForElementToBeVisible(WebElement element) {
+        return wait.until(ExpectedConditions.visibilityOf(element));
     }
     
     /**
      * Wait for element to be clickable
      */
     protected WebElement waitForElementToBeClickable(WebElement element) {
-        logger.debug("Waiting for element to be clickable: {}", element);
         return wait.until(ExpectedConditions.elementToBeClickable(element));
+    }
+    
+    /**
+     * Wait for element by locator to be visible
+     */
+    protected WebElement waitForElementToBeVisible(By locator) {
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
     }
     
     /**
      * Safe click method with wait
      */
-    protected void safeClick(By locator) {
-        WebElement element = waitForElementToBeClickable(locator);
-        element.click();
-        logger.info("Clicked on element: {}", locator);
-    }
-    
-    /**
-     * Safe click method with wait for WebElement
-     */
     protected void safeClick(WebElement element) {
-        waitForElementToBeClickable(element);
-        element.click();
-        logger.info("Clicked on element: {}", element);
+        waitForElementToBeClickable(element).click();
     }
     
     /**
      * Safe send keys method with wait
      */
-    protected void safeSendKeys(By locator, String text) {
-        WebElement element = waitForElementToBeVisible(locator);
-        element.clear();
+    protected void safeSendKeys(WebElement element, String text) {
+        waitForElementToBeVisible(element).clear();
         element.sendKeys(text);
-        logger.info("Entered text '{}' into element: {}", text, locator);
     }
     
     /**
-     * Get current page title
+     * Get page title
      */
     public String getPageTitle() {
-        String title = driver.getTitle();
-        logger.info("Current page title: {}", title);
-        return title;
+        return driver.getTitle();
     }
     
     /**
      * Get current URL
      */
     public String getCurrentUrl() {
-        String url = driver.getCurrentUrl();
-        logger.info("Current URL: {}", url);
-        return url;
+        return driver.getCurrentUrl();
     }
     
     /**
-     * Navigate to URL
+     * Check if element is displayed
      */
-    public void navigateTo(String url) {
-        logger.info("Navigating to URL: {}", url);
-        driver.get(url);
-    }
-    
-    /**
-     * Check if element is present
-     */
-    protected boolean isElementPresent(By locator) {
+    protected boolean isElementDisplayed(WebElement element) {
         try {
-            driver.findElement(locator);
-            return true;
+            return element.isDisplayed();
         } catch (Exception e) {
             return false;
         }
     }
     
     /**
-     * Scroll to element
+     * Abstract method to be implemented by each page
+     * to check if the page is properly loaded
      */
-    protected void scrollToElement(WebElement element) {
-        ((org.openqa.selenium.JavascriptExecutor) driver)
-            .executeScript("arguments[0].scrollIntoView(true);", element);
-        logger.debug("Scrolled to element: {}", element);
-    }
+    public abstract boolean isPageLoaded();
 }

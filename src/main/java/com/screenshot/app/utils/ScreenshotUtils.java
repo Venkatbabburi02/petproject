@@ -5,7 +5,6 @@ import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.By;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,13 +22,12 @@ import java.time.format.DateTimeFormatter;
 public class ScreenshotUtils {
     
     private static final Logger logger = LogManager.getLogger(ScreenshotUtils.class);
-    private final WebDriver driver;
-    private final String screenshotDirectory;
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final String SCREENSHOT_DIR = "screenshots/";
+    private static final String DATE_FORMAT = "yyyy-MM-dd_HH-mm-ss";
+    private WebDriver driver;
     
     public ScreenshotUtils(WebDriver driver) {
         this.driver = driver;
-        this.screenshotDirectory = System.getProperty("user.dir") + "/screenshots/";
         createScreenshotDirectory();
     }
     
@@ -37,145 +35,101 @@ public class ScreenshotUtils {
      * Create screenshot directory if it doesn't exist
      */
     private void createScreenshotDirectory() {
-        File directory = new File(screenshotDirectory);
-        if (!directory.exists()) {
-            boolean created = directory.mkdirs();
-            if (created) {
-                logger.info("Screenshot directory created: {}", screenshotDirectory);
-            } else {
-                logger.error("Failed to create screenshot directory: {}", screenshotDirectory);
-            }
+        File dir = new File(SCREENSHOT_DIR);
+        if (!dir.exists()) {
+            dir.mkdirs();
         }
     }
     
     /**
-     * Take a standard viewport screenshot with default naming
+     * Take a basic screenshot of the current viewport
      */
-    public String takeScreenshot() {
-        String timestamp = LocalDateTime.now().format(DATE_FORMAT);
-        String screenshotName = "screenshot_" + timestamp + ".png";
-        return takeScreenshot(screenshotName);
-    }
-    
-    /**
-     * Take a standard viewport screenshot with custom name
-     */
-    public String takeScreenshot(String screenshotName) {
+    public String takeScreenshot(String fileName) {
         try {
-            // Ensure screenshot name has .png extension
-            if (!screenshotName.endsWith(".png")) {
-                screenshotName += ".png";
-            }
-            
             TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
-            byte[] screenshotBytes = takesScreenshot.getScreenshotAs(OutputType.BYTES);
+            byte[] screenshot = takesScreenshot.getScreenshotAs(OutputType.BYTES);
             
-            String filePath = screenshotDirectory + screenshotName;
-            File screenshotFile = new File(filePath);
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT));
+            String fullFileName = fileName + "_" + timestamp + ".png";
+            String filePath = SCREENSHOT_DIR + fullFileName;
             
-            FileUtils.writeByteArrayToFile(screenshotFile, screenshotBytes);
-            
+            FileUtils.writeByteArrayToFile(new File(filePath), screenshot);
             logger.info("Screenshot saved: {}", filePath);
-            return filePath;
             
-        } catch (Exception e) {
-            logger.error("Failed to take screenshot: {}", screenshotName, e);
+            return filePath;
+        } catch (IOException e) {
+            logger.error("Failed to take screenshot: {}", e.getMessage());
             return null;
         }
     }
     
     /**
-     * Take full page screenshot with default naming
+     * Take a full page screenshot (including scrollable content)
      */
-    public String takeFullPageScreenshot() {
-        String timestamp = LocalDateTime.now().format(DATE_FORMAT);
-        String screenshotName = "fullpage_screenshot_" + timestamp + ".png";
-        return takeFullPageScreenshot(screenshotName);
-    }
-    
-    /**
-     * Take full page screenshot with custom name
-     */
-    public String takeFullPageScreenshot(String screenshotName) {
+    public String takeFullPageScreenshot(String fileName) {
         try {
-            // Ensure screenshot name has .png extension
-            if (!screenshotName.endsWith(".png")) {
-                screenshotName += ".png";
-            }
-            
+            // Get page dimensions
             JavascriptExecutor js = (JavascriptExecutor) driver;
-            
-            // Get the total height and width of the page
-            Long totalHeight = (Long) js.executeScript("return document.body.scrollHeight");
-            Long totalWidth = (Long) js.executeScript("return document.body.scrollWidth");
+            Long totalHeight = (Long) js.executeScript("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)");
             Long viewportHeight = (Long) js.executeScript("return window.innerHeight");
-            Long viewportWidth = (Long) js.executeScript("return window.innerWidth");
             
-            logger.info("Page dimensions - Total: {}x{}, Viewport: {}x{}", 
-                       totalWidth, totalHeight, viewportWidth, viewportHeight);
-            
-            // If page fits in viewport, take a regular screenshot
+            // If page fits in viewport, take regular screenshot
             if (totalHeight <= viewportHeight) {
-                return takeScreenshot(screenshotName);
+                return takeScreenshot(fileName + "_fullpage");
             }
             
-            // Create a composite image for full page screenshot
-            BufferedImage fullPageImage = new BufferedImage(
-                totalWidth.intValue(), 
-                totalHeight.intValue(), 
-                BufferedImage.TYPE_INT_RGB
-            );
+            // Take multiple screenshots and stitch them together
+            TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
             
-            // Calculate number of screenshots needed
-            int numberOfScreenshots = (int) Math.ceil((double) totalHeight / viewportHeight);
+            // Reset scroll position
+            js.executeScript("window.scrollTo(0, 0)");
+            Thread.sleep(500);
             
-            for (int i = 0; i < numberOfScreenshots; i++) {
-                // Scroll to the position
-                int scrollPosition = i * viewportHeight.intValue();
-                js.executeScript("window.scrollTo(0, " + scrollPosition + ")");
-                
-                // Wait for scroll to complete
+            // Take first screenshot
+            byte[] firstScreenshot = takesScreenshot.getScreenshotAs(OutputType.BYTES);
+            BufferedImage fullImage = ImageIO.read(new ByteArrayInputStream(firstScreenshot));
+            
+            int currentScroll = 0;
+            int scrollStep = viewportHeight.intValue() - 100; // Overlap for seamless stitching
+            
+            while (currentScroll < totalHeight - viewportHeight) {
+                currentScroll += scrollStep;
+                js.executeScript("window.scrollTo(0, " + currentScroll + ")");
                 Thread.sleep(500);
                 
-                // Take screenshot
-                TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
-                byte[] screenshotBytes = takesScreenshot.getScreenshotAs(OutputType.BYTES);
-                BufferedImage partialImage = ImageIO.read(new ByteArrayInputStream(screenshotBytes));
+                byte[] screenshot = takesScreenshot.getScreenshotAs(OutputType.BYTES);
+                BufferedImage currentImage = ImageIO.read(new ByteArrayInputStream(screenshot));
                 
-                // Calculate the actual height of this segment
-                int segmentHeight = Math.min(viewportHeight.intValue(), 
-                                           totalHeight.intValue() - scrollPosition);
-                
-                // Draw this segment onto the full page image
-                fullPageImage.getGraphics().drawImage(
-                    partialImage, 
-                    0, 
-                    scrollPosition, 
-                    viewportWidth.intValue(), 
-                    scrollPosition + segmentHeight, 
-                    0, 
-                    0, 
-                    viewportWidth.intValue(), 
-                    segmentHeight, 
-                    null
+                // Create new image with combined height
+                BufferedImage combinedImage = new BufferedImage(
+                    fullImage.getWidth(),
+                    fullImage.getHeight() + currentImage.getHeight() - 100, // Subtract overlap
+                    BufferedImage.TYPE_INT_RGB
                 );
                 
-                logger.debug("Captured segment {} of {}", i + 1, numberOfScreenshots);
+                // Draw existing image
+                combinedImage.getGraphics().drawImage(fullImage, 0, 0, null);
+                // Draw new image below with overlap
+                combinedImage.getGraphics().drawImage(currentImage, 0, fullImage.getHeight() - 100, null);
+                
+                fullImage = combinedImage;
             }
             
-            // Scroll back to top
+            // Save the full page screenshot
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT));
+            String fullFileName = fileName + "_fullpage_" + timestamp + ".png";
+            String filePath = SCREENSHOT_DIR + fullFileName;
+            
+            ImageIO.write(fullImage, "PNG", new File(filePath));
+            logger.info("Full page screenshot saved: {}", filePath);
+            
+            // Reset scroll position
             js.executeScript("window.scrollTo(0, 0)");
             
-            // Save the full page image
-            String filePath = screenshotDirectory + screenshotName;
-            File outputFile = new File(filePath);
-            ImageIO.write(fullPageImage, "PNG", outputFile);
-            
-            logger.info("Full page screenshot saved: {}", filePath);
             return filePath;
             
         } catch (Exception e) {
-            logger.error("Failed to take full page screenshot: {}", screenshotName, e);
+            logger.error("Failed to take full page screenshot: {}", e.getMessage());
             return null;
         }
     }
@@ -183,43 +137,54 @@ public class ScreenshotUtils {
     /**
      * Take screenshot of a specific element
      */
-    public String takeElementScreenshot(WebElement element, String screenshotName) {
+    public String takeElementScreenshot(WebElement element, String fileName) {
         try {
-            // Ensure screenshot name has .png extension
-            if (!screenshotName.endsWith(".png")) {
-                screenshotName += ".png";
+            byte[] screenshot = element.getScreenshotAs(OutputType.BYTES);
+            
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT));
+            String fullFileName = fileName + "_element_" + timestamp + ".png";
+            String filePath = SCREENSHOT_DIR + fullFileName;
+            
+            FileUtils.writeByteArrayToFile(new File(filePath), screenshot);
+            logger.info("Element screenshot saved: {}", filePath);
+            
+            return filePath;
+        } catch (IOException e) {
+            logger.error("Failed to take element screenshot: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Take screenshot with custom directory
+     */
+    public String takeScreenshot(String fileName, String customDir) {
+        try {
+            // Create custom directory if it doesn't exist
+            File dir = new File(customDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
             }
             
-            byte[] screenshotBytes = element.getScreenshotAs(OutputType.BYTES);
-            String filePath = screenshotDirectory + screenshotName;
-            File screenshotFile = new File(filePath);
+            TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
+            byte[] screenshot = takesScreenshot.getScreenshotAs(OutputType.BYTES);
             
-            FileUtils.writeByteArrayToFile(screenshotFile, screenshotBytes);
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT));
+            String fullFileName = fileName + "_" + timestamp + ".png";
+            String filePath = customDir + "/" + fullFileName;
             
-            logger.info("Element screenshot saved: {}", filePath);
+            FileUtils.writeByteArrayToFile(new File(filePath), screenshot);
+            logger.info("Screenshot saved: {}", filePath);
+            
             return filePath;
-            
-        } catch (Exception e) {
-            logger.error("Failed to take element screenshot: {}", screenshotName, e);
+        } catch (IOException e) {
+            logger.error("Failed to take screenshot: {}", e.getMessage());
             return null;
         }
     }
     
     /**
-     * Take screenshot of element by locator
-     */
-    public String takeElementScreenshot(By locator, String screenshotName) {
-        try {
-            WebElement element = driver.findElement(locator);
-            return takeElementScreenshot(element, screenshotName);
-        } catch (Exception e) {
-            logger.error("Failed to find element for screenshot: {}", locator, e);
-            return null;
-        }
-    }
-    
-    /**
-     * Compare two screenshots (basic pixel comparison)
+     * Compare two screenshots and highlight differences
      */
     public boolean compareScreenshots(String screenshot1Path, String screenshot2Path) {
         try {
@@ -227,32 +192,22 @@ public class ScreenshotUtils {
             BufferedImage img2 = ImageIO.read(new File(screenshot2Path));
             
             if (img1.getWidth() != img2.getWidth() || img1.getHeight() != img2.getHeight()) {
-                logger.info("Screenshots have different dimensions");
+                logger.warn("Screenshots have different dimensions");
                 return false;
             }
             
             for (int x = 0; x < img1.getWidth(); x++) {
                 for (int y = 0; y < img1.getHeight(); y++) {
                     if (img1.getRGB(x, y) != img2.getRGB(x, y)) {
-                        logger.info("Screenshots differ at pixel ({}, {})", x, y);
                         return false;
                     }
                 }
             }
             
-            logger.info("Screenshots are identical");
             return true;
-            
         } catch (IOException e) {
-            logger.error("Error comparing screenshots", e);
+            logger.error("Failed to compare screenshots: {}", e.getMessage());
             return false;
         }
-    }
-    
-    /**
-     * Get screenshot directory path
-     */
-    public String getScreenshotDirectory() {
-        return screenshotDirectory;
     }
 }

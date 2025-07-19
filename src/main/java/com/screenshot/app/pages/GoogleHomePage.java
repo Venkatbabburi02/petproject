@@ -4,7 +4,7 @@ import com.screenshot.app.base.BasePage;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 
 /**
  * Page Object for Google Home Page
@@ -21,112 +21,96 @@ public class GoogleHomePage extends BasePage {
     @FindBy(name = "btnK")
     private WebElement searchButton;
     
-    @FindBy(name = "btnI")
-    private WebElement feelingLuckyButton;
-    
-    @FindBy(xpath = "//div[@id='SIvCob']")
+    @FindBy(xpath = "//img[@alt='Google']")
     private WebElement googleLogo;
     
-    @FindBy(id = "gb")
-    private WebElement topNavigation;
+    @FindBy(id = "hplogo")
+    private WebElement homepageLogo;
     
-    // Constructor
     public GoogleHomePage(WebDriver driver) {
         super(driver);
     }
     
     /**
-     * Navigate to Google home page
+     * Open Google homepage
      */
-    public GoogleHomePage open() {
-        navigateTo(PAGE_URL);
-        waitForPageToLoad();
-        return this;
+    public void open() {
+        driver.get(PAGE_URL);
+        logger.info("Opened Google homepage: {}", PAGE_URL);
     }
     
     /**
-     * Wait for page to load completely
+     * Search for a term
      */
-    private void waitForPageToLoad() {
-        waitForElementToBeVisible(By.name("q"));
-        logger.info("Google home page loaded successfully");
-    }
-    
-    /**
-     * Enter search term in search box
-     */
-    public GoogleHomePage enterSearchTerm(String searchTerm) {
-        safeSendKeys(By.name("q"), searchTerm);
-        logger.info("Entered search term: {}", searchTerm);
-        return this;
+    public void search(String searchTerm) {
+        waitForElementToBeVisible(searchBox);
+        safeSendKeys(searchBox, searchTerm);
+        searchBox.sendKeys(Keys.ENTER);
+        logger.info("Searched for: {}", searchTerm);
     }
     
     /**
      * Click search button
      */
-    public GoogleSearchResultsPage clickSearchButton() {
+    public void clickSearchButton() {
         safeClick(searchButton);
         logger.info("Clicked search button");
-        return new GoogleSearchResultsPage(driver);
     }
     
     /**
-     * Click "I'm Feeling Lucky" button
+     * Get the Google logo element
      */
-    public void clickFeelingLuckyButton() {
-        safeClick(feelingLuckyButton);
-        logger.info("Clicked 'I'm Feeling Lucky' button");
-    }
-    
-    /**
-     * Perform search operation
-     */
-    public GoogleSearchResultsPage search(String searchTerm) {
-        enterSearchTerm(searchTerm);
-        return clickSearchButton();
-    }
-    
-    /**
-     * Check if search box is displayed
-     */
-    public boolean isSearchBoxDisplayed() {
-        return searchBox.isDisplayed();
+    public WebElement getGoogleLogoElement() {
+        try {
+            return waitForElementToBeVisible(googleLogo);
+        } catch (Exception e) {
+            // Try alternative logo element
+            return waitForElementToBeVisible(homepageLogo);
+        }
     }
     
     /**
      * Check if Google logo is displayed
      */
     public boolean isGoogleLogoDisplayed() {
-        return googleLogo.isDisplayed();
+        try {
+            return isElementDisplayed(googleLogo) || isElementDisplayed(homepageLogo);
+        } catch (Exception e) {
+            return false;
+        }
     }
     
     /**
-     * Get search box element for screenshots
+     * Get search box element
      */
-    public WebElement getSearchBoxElement() {
-        return searchBox;
+    public WebElement getSearchBox() {
+        return waitForElementToBeVisible(searchBox);
     }
     
     /**
-     * Get Google logo element
+     * Check if search box is displayed
      */
-    public WebElement getGoogleLogoElement() {
-        return googleLogo;
+    public boolean isSearchBoxDisplayed() {
+        return isElementDisplayed(searchBox);
     }
     
     /**
-     * Clear search box
+     * Implementation of abstract method from BasePage
      */
-    public GoogleHomePage clearSearchBox() {
-        searchBox.clear();
-        logger.info("Search box cleared");
-        return this;
-    }
-    
-    /**
-     * Check if page is loaded
-     */
+    @Override
     public boolean isPageLoaded() {
-        return isSearchBoxDisplayed() && isGoogleLogoDisplayed();
+        try {
+            return isSearchBoxDisplayed() && (isGoogleLogoDisplayed() || getPageTitle().contains("Google"));
+        } catch (Exception e) {
+            logger.error("Error checking if page is loaded: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get page URL
+     */
+    public String getPageUrl() {
+        return PAGE_URL;
     }
 }
