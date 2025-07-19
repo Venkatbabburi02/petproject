@@ -50,3 +50,12 @@
 13:27:49.813 [main] INFO  api.test.Usertests2 - *****updating user *******
 13:27:51.246 [main] INFO  api.test.Usertests2 - *****updated user *******
 13:27:51.251 [main] INFO  api.test.Usertests2 - *****deleting user *******
+08:38:14.750 [main] DEBUG api.test.Usertests2 - debug logs
+08:38:14.751 [main] INFO  api.test.Usertests2 - *****creating user *******
+08:38:15.955 [main] INFO  api.test.Usertests2 - *****user is created *******
+08:38:15.960 [main] INFO  api.test.Usertests2 - *****getting user *******
+08:38:16.290 [main] INFO  api.test.Usertests2 - *****user is retrived *******
+08:38:16.291 [main] INFO  api.test.Usertests2 - *****updating user *******
+08:38:16.622 [main] INFO  api.test.Usertests2 - *****updated user *******
+08:38:16.623 [main] INFO  api.test.Usertests2 - *****deleting user *******
+08:38:16.950 [main] INFO  api.test.Usertests2 - *****deleted user *******
