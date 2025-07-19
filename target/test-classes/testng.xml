@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suite name="ScreenshotAppTestSuite" parallel="false" thread-count="1">
+    
+    <parameter name="browser" value="chrome"/>
+    
+    <test name="ScreenshotFunctionalityTests">
+        <classes>
+            <class name="com.screenshot.app.tests.ScreenshotTests"/>
+        </classes>
+    </test>
+    
+    <!-- Test for headless mode -->
+    <test name="HeadlessScreenshotTests">
+        <parameter name="browser" value="chrome-headless"/>
+        <classes>
+            <class name="com.screenshot.app.tests.ScreenshotTests">
+                <methods>
+                    <include name="testBasicPageScreenshot"/>
+                    <include name="testFullPageScreenshot"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+    
+    <!-- Test for Firefox browser -->
+    <test name="FirefoxScreenshotTests">
+        <parameter name="browser" value="firefox"/>
+        <classes>
+            <class name="com.screenshot.app.tests.ScreenshotTests">
+                <methods>
+                    <include name="testBasicPageScreenshot"/>
+                    <include name="testSearchWorkflowWithScreenshots"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+    
+</suite>
